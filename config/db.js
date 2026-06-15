@@ -4,8 +4,11 @@ const { Pool } = pg;
 import 'dotenv/config';
 
 const pool = new Pool({
-  // Append sslmode=require directly to the connection string
-  connectionString: process.env.DATABASE_URL
+  connectionString: process.env.DATABASE_URL,
+  ssl: {
+    // This is the critical line that fixes DEPTH_ZERO_SELF_SIGNED_CERT
+    rejectUnauthorized: false 
+  }
 });
 
 export { pool };
