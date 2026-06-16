@@ -24,7 +24,7 @@ export const register = async (req, res) => {
         // since an admin is creating the account.
         const userResult = await client.query(
             `INSERT INTO users (name, email, phone, password_hash, role, account_status) 
-             VALUES ($1, $2, $3, $4, $5, 'APPROVED') RETURNING id, name, email, role`,
+             VALUES ($1, $2, $3, $4, $5, 'PENDING') RETURNING id, name, email, role`,
             [name, email, phone, passwordHash, role || 'user']
         );
         const userId = userResult.rows[0].id;
