@@ -62,7 +62,7 @@ export const activateClientAccount = async (req, res) => {
 
         // FIXED: Sets account_status to 'IN_PROGRESS' directly inside the users table
         await client.query(
-            'UPDATE users SET account_status = $2 WHERE id = $3', 
+            'UPDATE users SET account_status = $1 WHERE id = $2', 
             ['IN_PROGRESS', clientId]
         );
 
@@ -78,7 +78,7 @@ export const activateClientAccount = async (req, res) => {
 
         await client.query('COMMIT');
 
-        const appUrl = process.env.FRONTEND_URL || 'https://yourcareportal.com';
+        // const appUrl = process.env.FRONTEND_URL || 'https://yourcareportal.com';
 
         // await transporter.sendMail({
         //     from: '"Compassion Care Onboarding Team" <onboarding@yourcareportal.com>',
