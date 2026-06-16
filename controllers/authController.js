@@ -149,3 +149,61 @@ export const resetPassword = async (req, res) => {
         return res.status(500).json({ error: 'Internal server error executing password save.' });
     }
 };
+
+export const getAllUsers = async (req, res) => {
+    const { role } = req.query;
+    try {
+        let query = 'SELECT id, name, email, role FROM users';
+        const params = [];
+
+        // If a role is provided, append a WHERE clause
+        if (role) {
+            query += ' WHERE role = $1';
+            params.push(role);
+        }
+
+        const result = await pool.query(query, params);
+        return res.status(200).json(result.rows);
+    } catch (error) {
+        console.error('Fetch Users Error:', error);
+        return res.status(500).json({ error: 'Failed to retrieve users.' });
+    }
+};
+
+export const getAllUsersWithTasks = async (req, res) => {
+    try {
+        const query = `
+            SELECT 
+                u.id AS user_id, u.name AS user_name, 
+                t.id AS bucket_id, t.task_title, 
+                ti.id AS item_id, ti.item_title, ti.is_completed
+            FROM users u
+            LEFT JOIN tasks t ON u.id = t.client_id
+            LEFT JOIN task_items ti ON t.id = ti.task_id
+            ORDER BY u.id, t.id;
+        `;
+        const { rows } = await pool.query(query);
+
+        // Transform flat rows into a nested structure
+        const users = rows.reduce((acc, row) => {
+            if (!acc[row.user_id]) {
+                acc[row.user_id] = { id: row.user_id, name: row.user_name, buckets: {} };
+            }
+            if (row.bucket_id) {
+                if (!acc[row.user_id].buckets[row.bucket_id]) {
+                    acc[row.user_id].buckets[row.bucket_id] = { id: row.bucket_id, title: row.task_title, items: [] };
+                }
+                if (row.item_id) {
+                    acc[row.user_id].buckets[row.bucket_id].items.push({
+                        id: row.item_id, title: row.item_title, completed: row.is_completed
+                    });
+                }
+            }
+            return acc;
+        }, {});
+
+        return res.status(200).json(Object.values(users));
+    } catch (error) {
+        return res.status(500).json({ error: 'Failed to retrieve full user data.' });
+    }
+};

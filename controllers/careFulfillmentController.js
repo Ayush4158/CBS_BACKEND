@@ -134,29 +134,81 @@ export const getFamilyDashboardFeed = async (req, res) => {
 };
 
 // PUT: Family signs off on an entire main Bucket task
-export const verifyLoggedAction = async (req, res) => {
-    try {
-        const { taskId } = req.params;
-        const clientId = req.user.id; 
+// export const verifyLoggedAction = async (req, res) => {
+//     try {
+//         const { taskId } = req.params;
+//         const clientId = req.user.id; 
 
+//         const updateQuery = `
+//             UPDATE tasks 
+//             SET status = 'VERIFIED', verified_at = CURRENT_TIMESTAMP
+//             WHERE id = $1 AND client_id = $2
+//             RETURNING id;
+//         `;
+//         const result = await pool.query(updateQuery, [taskId, clientId]);
+
+//         if (result.rowCount === 0) {
+//             return res.status(404).json({ error: 'Record profile not found or unauthorized signature access.' });
+//         }
+
+//         return res.status(200).json({ message: 'Activity verified. Thank you for maintaining transparency.' });
+//     } catch (error) {
+//         console.error(error);
+//         return res.status(500).json({ error: 'Verification confirmation error.' });
+//     }
+// };
+
+export const verifyLoggedAction = async (req, res) => {
+    const { taskId } = req.params;
+    const clientId = req.user.id;
+    const client = await pool.connect(); // Use a dedicated client for transactions
+
+    try {
+        await client.query('BEGIN');
+
+        // 1. Check if all items in this task are completed
+        // We look for any item where is_completed is FALSE.
+        // If the count of such items > 0, we block the verification.
+        const pendingItemsCheck = await client.query(
+            `SELECT COUNT(*) 
+             FROM task_items 
+             WHERE task_id = $1 AND is_completed = FALSE`,
+            [taskId]
+        );
+
+        if (parseInt(pendingItemsCheck.rows[0].count) > 0) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ 
+                error: 'Verification blocked: Some tasks in this bucket are still pending.' 
+            });
+        }
+
+        // 2. If all items are complete, perform the verification
         const updateQuery = `
             UPDATE tasks 
             SET status = 'VERIFIED', verified_at = CURRENT_TIMESTAMP
             WHERE id = $1 AND client_id = $2
             RETURNING id;
         `;
-        const result = await pool.query(updateQuery, [taskId, clientId]);
+        const result = await client.query(updateQuery, [taskId, clientId]);
 
         if (result.rowCount === 0) {
-            return res.status(404).json({ error: 'Record profile not found or unauthorized signature access.' });
+            await client.query('ROLLBACK');
+            return res.status(404).json({ error: 'Task not found or unauthorized.' });
         }
 
-        return res.status(200).json({ message: 'Activity verified. Thank you for maintaining transparency.' });
+        await client.query('COMMIT');
+        return res.status(200).json({ message: 'Activity verified successfully.' });
+
     } catch (error) {
-        console.error(error);
-        return res.status(500).json({ error: 'Verification confirmation error.' });
+        await client.query('ROLLBACK');
+        console.error('Verification Error:', error);
+        return res.status(500).json({ error: 'Failed to complete verification process.' });
+    } finally {
+        client.release(); // Always release the client back to the pool
     }
 };
+
 
 // A. GET: Shared Feed (Used by Family & Companion)
 export const getSharedBuckets = async (req, res) => {
