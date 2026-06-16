@@ -56,14 +56,14 @@ export const activateClientAccount = async (req, res) => {
         }
 
         // Generate strong password following the character compliance strategy
-        const baseRandom = crypto.randomBytes(6).toString('base64').replace(/[^a-zA-Z0-9]/g, '');
-        const tempPassword = `${baseRandom}!26M`;
-        const passwordHash = await bcrypt.hash(tempPassword, 10);
+        // const baseRandom = crypto.randomBytes(6).toString('base64').replace(/[^a-zA-Z0-9]/g, '');
+        // const tempPassword = `${baseRandom}!26M`;
+        // const passwordHash = await bcrypt.hash(tempPassword, 10);
 
         // FIXED: Sets account_status to 'IN_PROGRESS' directly inside the users table
         await client.query(
-            'UPDATE users SET password_hash = $1, account_status = $2 WHERE id = $3', 
-            [passwordHash, 'IN_PROGRESS', clientId]
+            'UPDATE users SET account_status = $2 WHERE id = $3', 
+            ['IN_PROGRESS', clientId]
         );
 
         // FIXED: Removed invalid status field from care_details insertion statement

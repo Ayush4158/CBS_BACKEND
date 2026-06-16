@@ -52,6 +52,8 @@ export const login = async (req, res) => {
     try {
         const { email, password } = req.body;
         const result = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
+
+        console.log(email,password)
         
         if (result.rows.length === 0) {
             return res.status(400).json({ error: 'Invalid email or password' });
@@ -59,12 +61,16 @@ export const login = async (req, res) => {
 
         const user = result.rows[0];
 
+        console.log(user)
+
         // Guard rule preventing access if the account profile has been archived
         if (user.account_status === 'SOFT_DELETED') {
             return res.status(403).json({ error: 'Access denied. This profile asset has been securely deactivated.' });
         }
 
         const isMatch = await bcrypt.compare(password, user.password_hash);
+
+        console.log(password,isMatch)
         if (!isMatch) {
             return res.status(400).json({ error: 'Invalid email or password' });
         }
